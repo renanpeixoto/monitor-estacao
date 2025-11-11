@@ -8,20 +8,9 @@
     :root {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    body {
-      margin: 0;
-      background: #f3f4f6;
-    }
-    header {
-      background: #0f766e;
-      color: #fff;
-      padding: 1rem 1.2rem;
-    }
-    main {
-      padding: 1.2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+    body { margin: 0; background: #f3f4f6; }
+    header { background: #0f766e; color: #fff; padding: 1rem 1.2rem; }
+    main { padding: 1.2rem; max-width: 1200px; margin: 0 auto; }
     .controls {
       display: flex;
       gap: .75rem;
@@ -29,10 +18,7 @@
       margin-bottom: 1rem;
       align-items: center;
     }
-    label {
-      font-size: .9rem;
-      color: #0f172a;
-    }
+    label { font-size: .9rem; color: #0f172a; }
     input, button, select {
       padding: .4rem .6rem;
       font-size: .9rem;
@@ -44,13 +30,8 @@
       border-radius: .25rem;
       cursor: pointer;
     }
-    button:hover {
-      background: #115e57;
-    }
-    .status {
-      font-size: .8rem;
-      color: #475569;
-    }
+    button:hover { background: #115e57; }
+    .status { font-size: .8rem; color: #475569; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -58,6 +39,7 @@
       border-radius: .5rem;
       overflow: hidden;
       box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+      margin-top: 1.2rem;
     }
     th, td {
       padding: .5rem .6rem;
@@ -66,25 +48,32 @@
       text-align: left;
       white-space: nowrap;
     }
-    th {
-      background: #e2e8f0;
+    th { background: #e2e8f0; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    .badge-null { color: #94a3b8; font-style: italic; }
+    .card {
+      background: #fff;
+      border-radius: .5rem;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+      padding: .75rem 1rem 1rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: .9rem;
       font-weight: 600;
-    }
-    tr:last-child td {
-      border-bottom: none;
-    }
-    .badge-null {
-      color: #94a3b8;
-      font-style: italic;
+      margin-bottom: .5rem;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      justify-content: space-between;
     }
     @media (max-width: 880px) {
-      table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-      }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+      .controls { flex-direction: column; align-items: flex-start; }
     }
   </style>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
@@ -99,10 +88,27 @@
       </div>
       <div>
         <label for="limit">Qtde de registros:</label>
-        <input type="number" id="limit" value="30" min="1" max="200" style="width:4.5rem;">
+        <input type="number" id="limit" value="50" min="1" max="200" style="width:4.5rem;">
       </div>
       <button id="reloadBtn">Atualizar agora</button>
       <span id="status" class="status">Carregando...</span>
+    </div>
+
+    <!-- cartão do gráfico -->
+    <div class="card">
+      <div class="card-title">
+        <span>Gráfico de parâmetros</span>
+        <label style="font-weight:normal;">
+          Parâmetro:
+          <select id="paramSelect">
+            <option value="air_temperature">Temp. ar (°C)</option>
+            <option value="air_humid">Umidade (%)</option>
+            <option value="wind_speed_mean">Vento méd (m/s)</option>
+            <option value="water_temperature">Temp. água (°C)</option>
+          </select>
+        </label>
+      </div>
+      <canvas id="chart" height="110"></canvas>
     </div>
 
     <table id="dataTable">
@@ -124,14 +130,11 @@
           <th>Rad. solar (W/m²)</th>
         </tr>
       </thead>
-      <tbody>
-        <!-- preenchido via JS -->
-      </tbody>
+      <tbody></tbody>
     </table>
   </main>
 
   <script>
-    // URL da tua API na Railway
     const API_BASE = "https://apiestacao-production.up.railway.app";
 
     const statusEl = document.getElementById("status");
@@ -139,11 +142,13 @@
     const limitInput = document.getElementById("limit");
     const tbody = document.querySelector("#dataTable tbody");
     const btn = document.getElementById("reloadBtn");
+    const paramSelect = document.getElementById("paramSelect");
 
-    // converte ISO UTC para horário de Belém (-03:00)
+    let latestData = []; // vamos guardar a resposta aqui pra usar no gráfico
+    let chart = null;
+
     function formatDateToBelem(iso) {
       if (!iso) return "";
-      // força o navegador a converter
       const date = new Date(iso);
       return date.toLocaleString("pt-BR", { timeZone: "America/Belem" });
     }
@@ -159,13 +164,15 @@
 
     async function loadData() {
       const stationId = stationInput.value || 1;
-      const limit = limitInput.value || 30;
+      const limit = limitInput.value || 50;
       statusEl.textContent = "Carregando dados da estação " + stationId + "...";
       try {
         const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const json = await resp.json();
         const data = json.data || [];
+        latestData = data; // guarda pra usar no gráfico
+        // preencher tabela
         tbody.innerHTML = "";
         data.forEach(item => {
           const tr = document.createElement("tr");
@@ -188,17 +195,84 @@
           tbody.appendChild(tr);
         });
         statusEl.textContent = `Mostrando ${data.length} registros da estação ${stationId}. Atualiza a cada 60 s.`;
+        // atualizar gráfico com o parâmetro atual
+        updateChart(paramSelect.value);
       } catch (err) {
         console.error(err);
         statusEl.textContent = "Erro ao carregar dados. Verifique a API.";
       }
     }
 
-    btn.addEventListener("click", loadData);
+    function updateChart(param) {
+      // latestData está ordenado do mais recente para o mais antigo
+      // para o gráfico ficar "andando pra frente", vamos inverter
+      const dataSorted = [...latestData].reverse();
 
-    // carrega na entrada
+      const labels = dataSorted.map(item => formatDateToBelem(item.date));
+      const values = dataSorted.map(item => {
+        const v = item[param];
+        return (v === null || v === undefined) ? null : Number(v);
+      });
+
+      const prettyNames = {
+        air_temperature: "Temperatura do ar (°C)",
+        air_humid: "Umidade relativa (%)",
+        wind_speed_mean: "Vento médio (m/s)",
+        water_temperature: "Temperatura da água (°C)"
+      };
+
+      const ctx = document.getElementById("chart").getContext("2d");
+
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.data.datasets[0].label = prettyNames[param] || param;
+        chart.update();
+      } else {
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: prettyNames[param] || param,
+              data: values,
+              borderColor: "rgba(15,118,110,1)",
+              backgroundColor: "rgba(15,118,110,0.1)",
+              spanGaps: true,
+              tension: 0.2,
+              pointRadius: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: { display: true }
+            },
+            scales: {
+              x: {
+                ticks: { maxTicksLimit: 8 }
+              },
+              y: {
+                beginAtZero: false
+              }
+            }
+          }
+        });
+      }
+    }
+
+    btn.addEventListener("click", loadData);
+    paramSelect.addEventListener("change", (e) => {
+      updateChart(e.target.value);
+    });
+
+    // primeira carga
     loadData();
-    // atualiza a cada 60 s
+    // atualiza a cada 60s
     setInterval(loadData, 60000);
   </script>
 </body>
