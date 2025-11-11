@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitoramento da Estação</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: #f3f4f6;
+    }
+    header {
+      background: #0f766e;
+      color: #fff;
+      padding: 1rem 1.2rem;
+    }
+    main {
+      padding: 1.2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .controls {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    label {
+      font-size: .9rem;
+      color: #0f172a;
+    }
+    input, button, select {
+      padding: .4rem .6rem;
+      font-size: .9rem;
+    }
+    button {
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      border-radius: .25rem;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #115e57;
+    }
+    .status {
+      font-size: .8rem;
+      color: #475569;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: .5rem;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+    }
+    th, td {
+      padding: .5rem .6rem;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: .78rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th {
+      background: #e2e8f0;
+      font-weight: 600;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .badge-null {
+      color: #94a3b8;
+      font-style: italic;
+    }
+    @media (max-width: 880px) {
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="margin:0;font-size:1.1rem;">Dados da Estação (quase em tempo real)</h1>
+    <p style="margin:.2rem 0 0;font-size:.8rem;">Fonte: API na Railway → PostgreSQL</p>
+  </header>
+  <main>
+    <div class="controls">
+      <div>
+        <label for="stationId">Estação:</label>
+        <input type="number" id="stationId" value="1" min="1" style="width:4rem;">
+      </div>
+      <div>
+        <label for="limit">Qtde de registros:</label>
+        <input type="number" id="limit" value="30" min="1" max="200" style="width:4.5rem;">
+      </div>
+      <button id="reloadBtn">Atualizar agora</button>
+      <span id="status" class="status">Carregando...</span>
+    </div>
+
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Data/Hora (Belém)</th>
+          <th>Temp. ar (°C)</th>
+          <th>Umidade (%)</th>
+          <th>Pressão (hPa)</th>
+          <th>Precip. (mm)</th>
+          <th>Vento mín (m/s)</th>
+          <th>Vento máx (m/s)</th>
+          <th>Vento méd (m/s)</th>
+          <th>Dir. vento (°)</th>
+          <th>Nível água (m)</th>
+          <th>Temp. água (°C)</th>
+          <th>Bateria (V)</th>
+          <th>Temp. interna (°C)</th>
+          <th>Rad. solar (W/m²)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- preenchido via JS -->
+      </tbody>
+    </table>
+  </main>
+
+  <script>
+    // URL da tua API na Railway
+    const API_BASE = "https://apiestacao-production.up.railway.app";
+
+    const statusEl = document.getElementById("status");
+    const stationInput = document.getElementById("stationId");
+    const limitInput = document.getElementById("limit");
+    const tbody = document.querySelector("#dataTable tbody");
+    const btn = document.getElementById("reloadBtn");
+
+    // converte ISO UTC para horário de Belém (-03:00)
+    function formatDateToBelem(iso) {
+      if (!iso) return "";
+      // força o navegador a converter
+      const date = new Date(iso);
+      return date.toLocaleString("pt-BR", { timeZone: "America/Belem" });
+    }
+
+    function fmt(value, decimals = 2) {
+      if (value === null || value === undefined) {
+        return '<span class="badge-null">—</span>';
+      }
+      const num = Number(value);
+      if (Number.isNaN(num)) return value;
+      return num.toFixed(decimals);
+    }
+
+    async function loadData() {
+      const stationId = stationInput.value || 1;
+      const limit = limitInput.value || 30;
+      statusEl.textContent = "Carregando dados da estação " + stationId + "...";
+      try {
+        const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        const data = json.data || [];
+        tbody.innerHTML = "";
+        data.forEach(item => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${formatDateToBelem(item.date)}</td>
+            <td>${fmt(item.air_temperature)}</td>
+            <td>${fmt(item.air_humid, 1)}</td>
+            <td>${fmt(item.air_pressure, 1)}</td>
+            <td>${fmt(item.precipitation, 1)}</td>
+            <td>${fmt(item.wind_speed_min, 2)}</td>
+            <td>${fmt(item.wind_speed_max, 2)}</td>
+            <td>${fmt(item.wind_speed_mean, 2)}</td>
+            <td>${item.wind_direction ?? '<span class="badge-null">—</span>'}</td>
+            <td>${fmt(item.water_level, 2)}</td>
+            <td>${fmt(item.water_temperature, 2)}</td>
+            <td>${fmt(item.battery_volt, 2)}</td>
+            <td>${fmt(item.intern_temperature, 2)}</td>
+            <td>${fmt(item.solar_radiance, 1)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        statusEl.textContent = `Mostrando ${data.length} registros da estação ${stationId}. Atualiza a cada 60 s.`;
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Erro ao carregar dados. Verifique a API.";
+      }
+    }
+
+    btn.addEventListener("click", loadData);
+
+    // carrega na entrada
+    loadData();
+    // atualiza a cada 60 s
+    setInterval(loadData, 60000);
+  </script>
+</body>
+</html>
