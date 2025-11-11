@@ -2,83 +2,48 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Monitoramento da Estação</title>
+  <title>Dashboard da Estação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
+    :root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { margin: 0; background: #f3f4f6; }
     header { background: #0f766e; color: #fff; padding: 1rem 1.2rem; }
     main { padding: 1.2rem; max-width: 1200px; margin: 0 auto; }
-    .controls {
-      display: flex;
-      gap: .75rem;
-      flex-wrap: wrap;
-      margin-bottom: 1rem;
-      align-items: center;
-    }
-    label { font-size: .9rem; color: #0f172a; }
-    input, button, select {
-      padding: .4rem .6rem;
-      font-size: .9rem;
-    }
-    button {
-      background: #0f766e;
-      color: #fff;
-      border: none;
-      border-radius: .25rem;
-      cursor: pointer;
-    }
+    .controls { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+    input, button, select { padding: .35rem .6rem; font-size: .9rem; }
+    button { background: #0f766e; color: #fff; border: none; border-radius: .25rem; cursor: pointer; }
     button:hover { background: #115e57; }
     .status { font-size: .8rem; color: #475569; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: .5rem;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
-      margin-top: 1.2rem;
-    }
-    th, td {
-      padding: .5rem .6rem;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: .78rem;
-      text-align: left;
-      white-space: nowrap;
-    }
-    th { background: #e2e8f0; font-weight: 600; }
-    tr:last-child td { border-bottom: none; }
-    .badge-null { color: #94a3b8; font-style: italic; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
     .card {
       background: #fff;
       border-radius: .5rem;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
-      padding: .75rem 1rem 1rem 1rem;
-      margin-bottom: 1rem;
+      padding: .75rem .9rem;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
     }
-    .card-title {
-      font-size: .9rem;
-      font-weight: 600;
-      margin-bottom: .5rem;
-      display: flex;
-      gap: .5rem;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .card-title { font-size: .7rem; color: #64748b; margin-bottom: .35rem; text-transform: uppercase; }
+    .card-value { font-size: 1.3rem; font-weight: 600; }
+    .card-sub { font-size: .7rem; color: #94a3b8; }
+    .section { background: #fff; border-radius: .5rem; box-shadow: 0 1px 3px rgba(15,23,42,.1); padding: .75rem 1rem 1rem; margin-bottom: 1rem; }
+    .section-title { display:flex; justify-content: space-between; align-items:center; margin-bottom: .5rem; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: .5rem; overflow: hidden; }
+    th, td { padding: .5rem .6rem; border-bottom: 1px solid #e2e8f0; font-size: .78rem; white-space: nowrap; text-align: left; }
+    th { background: #e2e8f0; }
+    tr:last-child td { border-bottom: none; }
+    .badge-null { color: #94a3b8; font-style: italic; }
+    .params-box { display: flex; gap: .75rem; flex-wrap: wrap; }
+    label.small { font-size: .75rem; display:flex; gap:.25rem; align-items:center; }
     @media (max-width: 880px) {
-      table { display: block; overflow-x: auto; white-space: nowrap; }
+      table { display:block; overflow-x:auto; white-space:nowrap; }
       .controls { flex-direction: column; align-items: flex-start; }
     }
   </style>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
-    <h1 style="margin:0;font-size:1.1rem;">Dados da Estação (quase em tempo real)</h1>
-    <p style="margin:.2rem 0 0;font-size:.8rem;">Fonte: API na Railway → PostgreSQL</p>
+    <h1 style="margin:0;font-size:1.1rem;">Dashboard da Estação</h1>
+    <p style="margin:.2rem 0 0;font-size:.8rem;">API: Railway • Dados: PostgreSQL</p>
   </header>
   <main>
     <div class="controls">
@@ -87,51 +52,76 @@
         <input type="number" id="stationId" value="1" min="1" style="width:4rem;">
       </div>
       <div>
-        <label for="limit">Qtde de registros:</label>
-        <input type="number" id="limit" value="50" min="1" max="200" style="width:4.5rem;">
+        <label for="limit">Registros:</label>
+        <input type="number" id="limit" value="50" min="10" max="200" style="width:4.5rem;">
       </div>
       <button id="reloadBtn">Atualizar agora</button>
       <span id="status" class="status">Carregando...</span>
     </div>
 
-    <!-- cartão do gráfico -->
-    <div class="card">
-      <div class="card-title">
-        <span>Gráfico de parâmetros</span>
-        <label style="font-weight:normal;">
-          Parâmetro:
-          <select id="paramSelect">
-            <option value="air_temperature">Temp. ar (°C)</option>
-            <option value="air_humid">Umidade (%)</option>
-            <option value="wind_speed_mean">Vento méd (m/s)</option>
-            <option value="water_temperature">Temp. água (°C)</option>
-          </select>
-        </label>
+    <!-- cards de última medição -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Temp. ar (°C)</div>
+        <div class="card-value" id="card-air-temp">—</div>
+        <div class="card-sub" id="card-air-temp-time"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Umidade (%)</div>
+        <div class="card-value" id="card-air-humid">—</div>
+        <div class="card-sub" id="card-air-humid-time"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Vento méd (m/s)</div>
+        <div class="card-value" id="card-wind-mean">—</div>
+        <div class="card-sub" id="card-wind-mean-time"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Temp. água (°C)</div>
+        <div class="card-value" id="card-water-temp">—</div>
+        <div class="card-sub" id="card-water-temp-time"></div>
+      </div>
+    </div>
+
+    <!-- gráfico -->
+    <div class="section">
+      <div class="section-title">
+        <span>Séries temporais</span>
+        <div class="params-box">
+          <label class="small"><input type="checkbox" value="air_temperature" checked> Temp. ar</label>
+          <label class="small"><input type="checkbox" value="air_humid"> Umidade</label>
+          <label class="small"><input type="checkbox" value="wind_speed_mean"> Vento méd</label>
+          <label class="small"><input type="checkbox" value="water_temperature"> Temp. água</label>
+        </div>
       </div>
       <canvas id="chart" height="110"></canvas>
     </div>
 
-    <table id="dataTable">
-      <thead>
-        <tr>
-          <th>Data/Hora (Belém)</th>
-          <th>Temp. ar (°C)</th>
-          <th>Umidade (%)</th>
-          <th>Pressão (hPa)</th>
-          <th>Precip. (mm)</th>
-          <th>Vento mín (m/s)</th>
-          <th>Vento máx (m/s)</th>
-          <th>Vento méd (m/s)</th>
-          <th>Dir. vento (°)</th>
-          <th>Nível água (m)</th>
-          <th>Temp. água (°C)</th>
-          <th>Bateria (V)</th>
-          <th>Temp. interna (°C)</th>
-          <th>Rad. solar (W/m²)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <!-- tabela -->
+    <div class="section">
+      <div class="section-title"><span>Registros brutos</span></div>
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Data/Hora (Belém)</th>
+            <th>Temp. ar (°C)</th>
+            <th>Umidade (%)</th>
+            <th>Pressão (hPa)</th>
+            <th>Precip. (mm)</th>
+            <th>Vento mín (m/s)</th>
+            <th>Vento máx (m/s)</th>
+            <th>Vento méd (m/s)</th>
+            <th>Dir. vento (°)</th>
+            <th>Nível água (m)</th>
+            <th>Temp. água (°C)</th>
+            <th>Bateria (V)</th>
+            <th>Temp. interna (°C)</th>
+            <th>Rad. solar (W/m²)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </main>
 
   <script>
@@ -140,11 +130,21 @@
     const statusEl = document.getElementById("status");
     const stationInput = document.getElementById("stationId");
     const limitInput = document.getElementById("limit");
-    const tbody = document.querySelector("#dataTable tbody");
     const btn = document.getElementById("reloadBtn");
-    const paramSelect = document.getElementById("paramSelect");
+    const tbody = document.querySelector("#dataTable tbody");
+    const checkboxes = document.querySelectorAll(".params-box input[type=checkbox]");
 
-    let latestData = []; // vamos guardar a resposta aqui pra usar no gráfico
+    // cards
+    const cardAirTemp = document.getElementById("card-air-temp");
+    const cardAirTempTime = document.getElementById("card-air-temp-time");
+    const cardAirHumid = document.getElementById("card-air-humid");
+    const cardAirHumidTime = document.getElementById("card-air-humid-time");
+    const cardWindMean = document.getElementById("card-wind-mean");
+    const cardWindMeanTime = document.getElementById("card-wind-mean-time");
+    const cardWaterTemp = document.getElementById("card-water-temp");
+    const cardWaterTempTime = document.getElementById("card-water-temp-time");
+
+    let latestData = [];
     let chart = null;
 
     function formatDateToBelem(iso) {
@@ -154,9 +154,7 @@
     }
 
     function fmt(value, decimals = 2) {
-      if (value === null || value === undefined) {
-        return '<span class="badge-null">—</span>';
-      }
+      if (value === null || value === undefined) return '<span class="badge-null">—</span>';
       const num = Number(value);
       if (Number.isNaN(num)) return value;
       return num.toFixed(decimals);
@@ -165,13 +163,28 @@
     async function loadData() {
       const stationId = stationInput.value || 1;
       const limit = limitInput.value || 50;
-      statusEl.textContent = "Carregando dados da estação " + stationId + "...";
+      statusEl.textContent = `Carregando dados da estação ${stationId}...`;
       try {
         const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const json = await resp.json();
         const data = json.data || [];
-        latestData = data; // guarda pra usar no gráfico
+        latestData = data;
+
+        // preencher cards com o primeiro registro (mais recente)
+        if (data.length > 0) {
+          const first = data[0];
+          const when = formatDateToBelem(first.date);
+          cardAirTemp.innerHTML = first.air_temperature != null ? Number(first.air_temperature).toFixed(1) : "—";
+          cardAirTempTime.textContent = when;
+          cardAirHumid.innerHTML = first.air_humid != null ? Number(first.air_humid).toFixed(1) : "—";
+          cardAirHumidTime.textContent = when;
+          cardWindMean.innerHTML = first.wind_speed_mean != null ? Number(first.wind_speed_mean).toFixed(2) : "—";
+          cardWindMeanTime.textContent = when;
+          cardWaterTemp.innerHTML = first.water_temperature != null ? Number(first.water_temperature).toFixed(2) : "—";
+          cardWaterTempTime.textContent = when;
+        }
+
         // preencher tabela
         tbody.innerHTML = "";
         data.forEach(item => {
@@ -194,71 +207,79 @@
           `;
           tbody.appendChild(tr);
         });
-        statusEl.textContent = `Mostrando ${data.length} registros da estação ${stationId}. Atualiza a cada 60 s.`;
-        // atualizar gráfico com o parâmetro atual
-        updateChart(paramSelect.value);
+
+        statusEl.textContent = `Mostrando ${data.length} registros da estação ${stationId}.`;
+
+        // atualizar gráfico com os parâmetros selecionados
+        updateChart();
       } catch (err) {
         console.error(err);
-        statusEl.textContent = "Erro ao carregar dados. Verifique a API.";
+        statusEl.textContent = "Erro ao carregar dados. Veja o console.";
       }
     }
 
-    function updateChart(param) {
-      // latestData está ordenado do mais recente para o mais antigo
-      // para o gráfico ficar "andando pra frente", vamos inverter
+    function updateChart() {
+      // inverter para ficar do mais antigo ao mais recente
       const dataSorted = [...latestData].reverse();
-
       const labels = dataSorted.map(item => formatDateToBelem(item.date));
-      const values = dataSorted.map(item => {
-        const v = item[param];
-        return (v === null || v === undefined) ? null : Number(v);
-      });
+
+      // pegar parâmetros marcados
+      const selectedParams = Array.from(checkboxes)
+        .filter(ch => ch.checked)
+        .map(ch => ch.value);
 
       const prettyNames = {
-        air_temperature: "Temperatura do ar (°C)",
-        air_humid: "Umidade relativa (%)",
-        wind_speed_mean: "Vento médio (m/s)",
-        water_temperature: "Temperatura da água (°C)"
+        air_temperature: "Temp. ar (°C)",
+        air_humid: "Umidade (%)",
+        wind_speed_mean: "Vento méd (m/s)",
+        water_temperature: "Temp. água (°C)"
       };
 
-      const ctx = document.getElementById("chart").getContext("2d");
+      const datasets = selectedParams.map((param, idx) => {
+        const values = dataSorted.map(item => {
+          const v = item[param];
+          return v == null ? null : Number(v);
+        });
+        // cores simples (podia melhorar depois)
+        const colors = [
+          "rgba(15,118,110,1)",
+          "rgba(59,130,246,1)",
+          "rgba(234,179,8,1)",
+          "rgba(239,68,68,1)"
+        ];
+        const bg = [
+          "rgba(15,118,110,0.15)",
+          "rgba(59,130,246,0.15)",
+          "rgba(234,179,8,0.15)",
+          "rgba(239,68,68,0.15)"
+        ];
+        return {
+          label: prettyNames[param] || param,
+          data: values,
+          borderColor: colors[idx % colors.length],
+          backgroundColor: bg[idx % bg.length],
+          tension: 0.2,
+          spanGaps: true,
+          pointRadius: 2
+        };
+      });
 
+      const ctx = document.getElementById("chart").getContext("2d");
       if (chart) {
         chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.data.datasets[0].label = prettyNames[param] || param;
+        chart.data.datasets = datasets;
         chart.update();
       } else {
         chart = new Chart(ctx, {
           type: "line",
-          data: {
-            labels: labels,
-            datasets: [{
-              label: prettyNames[param] || param,
-              data: values,
-              borderColor: "rgba(15,118,110,1)",
-              backgroundColor: "rgba(15,118,110,0.1)",
-              spanGaps: true,
-              tension: 0.2,
-              pointRadius: 2
-            }]
-          },
+          data: { labels, datasets },
           options: {
             responsive: true,
-            interaction: {
-              mode: 'index',
-              intersect: false,
-            },
-            plugins: {
-              legend: { display: true }
-            },
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: true } },
             scales: {
-              x: {
-                ticks: { maxTicksLimit: 8 }
-              },
-              y: {
-                beginAtZero: false
-              }
+              x: { ticks: { maxTicksLimit: 8 } },
+              y: { beginAtZero: false }
             }
           }
         });
@@ -266,14 +287,12 @@
     }
 
     btn.addEventListener("click", loadData);
-    paramSelect.addEventListener("change", (e) => {
-      updateChart(e.target.value);
-    });
+    checkboxes.forEach(ch => ch.addEventListener("change", updateChart));
 
     // primeira carga
     loadData();
-    // atualiza a cada 60s
     setInterval(loadData, 60000);
   </script>
 </body>
 </html>
+
