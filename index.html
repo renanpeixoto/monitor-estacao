@@ -9,30 +9,94 @@
     body { margin: 0; background: #f3f4f6; }
     header { background: #0f766e; color: #fff; padding: 1rem 1.2rem; }
     main { padding: 1.2rem; max-width: 1200px; margin: 0 auto; }
-    .controls { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
-    input, button, select { padding: .35rem .6rem; font-size: .9rem; }
-    button { background: #0f766e; color: #fff; border: none; border-radius: .25rem; cursor: pointer; }
+
+    .controls {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    input, button, select {
+      padding: .35rem .6rem;
+      font-size: .9rem;
+    }
+    button {
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      border-radius: .25rem;
+      cursor: pointer;
+    }
     button:hover { background: #115e57; }
     .status { font-size: .8rem; color: #475569; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
     .card {
       background: #fff;
       border-radius: .5rem;
       padding: .75rem .9rem;
       box-shadow: 0 1px 3px rgba(15, 23, 42, .1);
     }
-    .card-title { font-size: .7rem; color: #64748b; margin-bottom: .35rem; text-transform: uppercase; }
+    .card-title {
+      font-size: .7rem;
+      color: #64748b;
+      margin-bottom: .35rem;
+      text-transform: uppercase;
+    }
     .card-value { font-size: 1.3rem; font-weight: 600; }
     .card-sub { font-size: .7rem; color: #94a3b8; }
-    .section { background: #fff; border-radius: .5rem; box-shadow: 0 1px 3px rgba(15,23,42,.1); padding: .75rem 1rem 1rem; margin-bottom: 1rem; }
-    .section-title { display:flex; justify-content: space-between; align-items:center; margin-bottom: .5rem; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: .5rem; overflow: hidden; }
-    th, td { padding: .5rem .6rem; border-bottom: 1px solid #e2e8f0; font-size: .78rem; white-space: nowrap; text-align: left; }
+
+    .section {
+      background: #fff;
+      border-radius: .5rem;
+      box-shadow: 0 1px 3px rgba(15,23,42,.1);
+      padding: .75rem 1rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      margin-bottom: .5rem;
+      font-weight: 600;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: .5rem;
+      overflow: hidden;
+    }
+    th, td {
+      padding: .5rem .6rem;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: .78rem;
+      white-space: nowrap;
+      text-align: left;
+    }
     th { background: #e2e8f0; }
     tr:last-child td { border-bottom: none; }
     .badge-null { color: #94a3b8; font-style: italic; }
-    .params-box { display: flex; gap: .75rem; flex-wrap: wrap; }
-    label.small { font-size: .75rem; display:flex; gap:.25rem; align-items:center; }
+
+    .params-box {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+    label.small {
+      font-size: .75rem;
+      display:flex;
+      gap:.25rem;
+      align-items:center;
+    }
+
     @media (max-width: 880px) {
       table { display:block; overflow-x:auto; white-space:nowrap; }
       .controls { flex-direction: column; align-items: flex-start; }
@@ -43,8 +107,9 @@
 <body>
   <header>
     <h1 style="margin:0;font-size:1.1rem;">Dashboard da Estação</h1>
-    <p style="margin:.2rem 0 0;font-size:.8rem;">API: Railway • Dados: PostgreSQL</p>
+    <p style="margin:.2rem 0 0;font-size:.8rem;">Projeto ARCA • LAPMAR / UFPA • API: Railway • Dados: PostgreSQL</p>
   </header>
+
   <main>
     <div class="controls">
       <div>
@@ -87,12 +152,7 @@
     <div class="section">
       <div class="section-title">
         <span>Séries temporais</span>
-        <div class="params-box">
-          <label class="small"><input type="checkbox" value="air_temperature" checked> Temp. ar</label>
-          <label class="small"><input type="checkbox" value="air_humid"> Umidade</label>
-          <label class="small"><input type="checkbox" value="wind_speed_mean"> Vento méd</label>
-          <label class="small"><input type="checkbox" value="water_temperature"> Temp. água</label>
-        </div>
+        <div class="params-box" id="paramsBox"><!-- preenchido via JS --></div>
       </div>
       <canvas id="chart" height="110"></canvas>
     </div>
@@ -127,12 +187,31 @@
   <script>
     const API_BASE = "https://apiestacao-production.up.railway.app";
 
+    // === Config de parâmetros (tabela + gráfico) ===
+    // axis: 'y' (eixo principal) ou 'y1' (eixo secundário)
+    const PARAMS = [
+      { key: "air_temperature",     label: "Temp. ar (°C)",        decimals: 2, axis: "y"  },
+      { key: "air_humid",           label: "Umidade (%)",          decimals: 1, axis: "y1" },
+      { key: "air_pressure",        label: "Pressão (hPa)",        decimals: 1, axis: "y1" },
+      { key: "precipitation",       label: "Precip. (mm)",         decimals: 1, axis: "y1" },
+      { key: "wind_speed_min",      label: "Vento mín (m/s)",      decimals: 2, axis: "y"  },
+      { key: "wind_speed_max",      label: "Vento máx (m/s)",      decimals: 2, axis: "y"  },
+      { key: "wind_speed_mean",     label: "Vento méd (m/s)",      decimals: 2, axis: "y"  },
+      { key: "wind_direction",      label: "Dir. vento (°)",       decimals: 0, axis: "y1" },
+      { key: "water_level",         label: "Nível água (m)",       decimals: 2, axis: "y"  },
+      { key: "water_temperature",   label: "Temp. água (°C)",      decimals: 2, axis: "y"  },
+      { key: "battery_volt",        label: "Bateria (V)",          decimals: 2, axis: "y1" },
+      { key: "intern_temperature",  label: "Temp. interna (°C)",   decimals: 2, axis: "y"  },
+      { key: "solar_radiance",      label: "Rad. solar (W/m²)",    decimals: 1, axis: "y1" },
+    ];
+
     const statusEl = document.getElementById("status");
     const stationInput = document.getElementById("stationId");
     const limitInput = document.getElementById("limit");
     const btn = document.getElementById("reloadBtn");
     const tbody = document.querySelector("#dataTable tbody");
-    const checkboxes = document.querySelectorAll(".params-box input[type=checkbox]");
+
+    const paramsBox = document.getElementById("paramsBox");
 
     // cards
     const cardAirTemp = document.getElementById("card-air-temp");
@@ -146,6 +225,15 @@
 
     let latestData = [];
     let chart = null;
+    let checkboxes;
+
+    // gera checkboxes a partir de PARAMS (2 primeiros marcados por padrão)
+    paramsBox.innerHTML = PARAMS.map((p, i) => `
+      <label class="small">
+        <input type="checkbox" value="${p.key}" ${i < 2 ? "checked" : ""}> ${p.label}
+      </label>
+    `).join("");
+    checkboxes = paramsBox.querySelectorAll('input[type="checkbox"]');
 
     function formatDateToBelem(iso) {
       if (!iso) return "";
@@ -160,10 +248,16 @@
       return num.toFixed(decimals);
     }
 
+    function decsFor(key, fallback = 2) {
+      const meta = PARAMS.find(p => p.key === key);
+      return meta ? meta.decimals : fallback;
+    }
+
     async function loadData() {
       const stationId = stationInput.value || 1;
       const limit = limitInput.value || 50;
       statusEl.textContent = `Carregando dados da estação ${stationId}...`;
+
       try {
         const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
@@ -171,7 +265,7 @@
         const data = json.data || [];
         latestData = data;
 
-        // preencher cards com o primeiro registro (mais recente)
+        // cards: usam o registro mais recente (primeiro da lista)
         if (data.length > 0) {
           const first = data[0];
           const when = formatDateToBelem(first.date);
@@ -185,32 +279,30 @@
           cardWaterTempTime.textContent = when;
         }
 
-        // preencher tabela
+        // tabela
         tbody.innerHTML = "";
         data.forEach(item => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${formatDateToBelem(item.date)}</td>
-            <td>${fmt(item.air_temperature)}</td>
-            <td>${fmt(item.air_humid, 1)}</td>
-            <td>${fmt(item.air_pressure, 1)}</td>
-            <td>${fmt(item.precipitation, 1)}</td>
-            <td>${fmt(item.wind_speed_min, 2)}</td>
-            <td>${fmt(item.wind_speed_max, 2)}</td>
-            <td>${fmt(item.wind_speed_mean, 2)}</td>
+            <td>${fmt(item.air_temperature,    decsFor("air_temperature"))}</td>
+            <td>${fmt(item.air_humid,          decsFor("air_humid", 1))}</td>
+            <td>${fmt(item.air_pressure,       decsFor("air_pressure", 1))}</td>
+            <td>${fmt(item.precipitation,      decsFor("precipitation", 1))}</td>
+            <td>${fmt(item.wind_speed_min,     decsFor("wind_speed_min"))}</td>
+            <td>${fmt(item.wind_speed_max,     decsFor("wind_speed_max"))}</td>
+            <td>${fmt(item.wind_speed_mean,    decsFor("wind_speed_mean"))}</td>
             <td>${item.wind_direction ?? '<span class="badge-null">—</span>'}</td>
-            <td>${fmt(item.water_level, 2)}</td>
-            <td>${fmt(item.water_temperature, 2)}</td>
-            <td>${fmt(item.battery_volt, 2)}</td>
-            <td>${fmt(item.intern_temperature, 2)}</td>
-            <td>${fmt(item.solar_radiance, 1)}</td>
+            <td>${fmt(item.water_level,        decsFor("water_level"))}</td>
+            <td>${fmt(item.water_temperature,  decsFor("water_temperature"))}</td>
+            <td>${fmt(item.battery_volt,       decsFor("battery_volt"))}</td>
+            <td>${fmt(item.intern_temperature, decsFor("intern_temperature"))}</td>
+            <td>${fmt(item.solar_radiance,     decsFor("solar_radiance", 1))}</td>
           `;
           tbody.appendChild(tr);
         });
 
         statusEl.textContent = `Mostrando ${data.length} registros da estação ${stationId}.`;
-
-        // atualizar gráfico com os parâmetros selecionados
         updateChart();
       } catch (err) {
         console.error(err);
@@ -219,48 +311,40 @@
     }
 
     function updateChart() {
-      // inverter para ficar do mais antigo ao mais recente
       const dataSorted = [...latestData].reverse();
       const labels = dataSorted.map(item => formatDateToBelem(item.date));
 
-      // pegar parâmetros marcados
-      const selectedParams = Array.from(checkboxes)
+      const selectedKeys = Array.from(checkboxes)
         .filter(ch => ch.checked)
         .map(ch => ch.value);
 
-      const prettyNames = {
-        air_temperature: "Temp. ar (°C)",
-        air_humid: "Umidade (%)",
-        wind_speed_mean: "Vento méd (m/s)",
-        water_temperature: "Temp. água (°C)"
-      };
+      const stroke = [
+        "rgba(15,118,110,1)",
+        "rgba(59,130,246,1)",
+        "rgba(234,179,8,1)",
+        "rgba(239,68,68,1)",
+        "rgba(99,102,241,1)",
+        "rgba(16,185,129,1)",
+        "rgba(245,158,11,1)",
+        "rgba(236,72,153,1)",
+      ];
+      const fill = stroke.map(s => s.replace(",1)", ",0.15)"));
 
-      const datasets = selectedParams.map((param, idx) => {
-        const values = dataSorted.map(item => {
-          const v = item[param];
+      const datasets = selectedKeys.map((key, idx) => {
+        const meta = PARAMS.find(p => p.key === key) || { label: key, decimals: 2, axis: "y" };
+        const values = dataSorted.map(row => {
+          const v = row[key];
           return v == null ? null : Number(v);
         });
-        // cores simples (podia melhorar depois)
-        const colors = [
-          "rgba(15,118,110,1)",
-          "rgba(59,130,246,1)",
-          "rgba(234,179,8,1)",
-          "rgba(239,68,68,1)"
-        ];
-        const bg = [
-          "rgba(15,118,110,0.15)",
-          "rgba(59,130,246,0.15)",
-          "rgba(234,179,8,0.15)",
-          "rgba(239,68,68,0.15)"
-        ];
         return {
-          label: prettyNames[param] || param,
+          label: meta.label,
           data: values,
-          borderColor: colors[idx % colors.length],
-          backgroundColor: bg[idx % bg.length],
+          borderColor: stroke[idx % stroke.length],
+          backgroundColor: fill[idx % fill.length],
           tension: 0.2,
           spanGaps: true,
-          pointRadius: 2
+          pointRadius: 2,
+          yAxisID: meta.axis || "y",
         };
       });
 
@@ -276,10 +360,31 @@
           options: {
             responsive: true,
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: true } },
+            plugins: {
+              legend: { display: true },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) {
+                    const key = selectedKeys[ctx.datasetIndex];
+                    const meta = PARAMS.find(p => p.key === key);
+                    const val = ctx.parsed.y;
+                    if (val == null || !meta) return ctx.dataset.label + ": —";
+                    return `${meta.label}: ${Number(val).toFixed(meta.decimals)}`;
+                  }
+                }
+              }
+            },
             scales: {
               x: { ticks: { maxTicksLimit: 8 } },
-              y: { beginAtZero: false }
+              y: {
+                type: 'linear',
+                position: 'left',
+              },
+              y1: {
+                type: 'linear',
+                position: 'right',
+                grid: { drawOnChartArea: false },
+              }
             }
           }
         });
@@ -289,10 +394,11 @@
     btn.addEventListener("click", loadData);
     checkboxes.forEach(ch => ch.addEventListener("change", updateChart));
 
-    // primeira carga
+    // primeira carga + atualização periódica
     loadData();
     setInterval(loadData, 60000);
   </script>
 </body>
 </html>
+
 
