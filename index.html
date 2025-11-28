@@ -17,7 +17,7 @@
       margin-bottom: 1rem;
       align-items: center;
     }
-    input, button {
+    input, button, select {
       padding: .35rem .6rem;
       font-size: .9rem;
     }
@@ -33,7 +33,7 @@
 
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: .75rem;
       margin-bottom: 1rem;
     }
@@ -50,7 +50,7 @@
       text-transform: uppercase;
     }
     .card-value { font-size: 1.3rem; font-weight: 600; }
-    .card-sub { font-size: .7rem; color: #94a3b8; }
+    .card-sub { font-size: .7rem; color: #94a3b8; margin-top: .25rem; }
 
     .section {
       background: #fff;
@@ -65,6 +65,9 @@
       align-items:center;
       margin-bottom: .5rem;
       font-weight: 600;
+    }
+    .section-title select {
+      font-size: .8rem;
     }
 
     @media (max-width: 880px) {
@@ -86,52 +89,85 @@
         <input type="number" id="stationId" value="1" min="1" style="width:4rem;">
       </div>
       <div>
-        <label for="limit">Registros usados na média:</label>
+        <label for="limit">Registros usados nas estatísticas:</label>
         <input type="number" id="limit" value="50" min="10" max="500" style="width:4.5rem;">
       </div>
       <button id="reloadBtn">Atualizar agora</button>
       <span id="status" class="status">Carregando...</span>
     </div>
 
-    <!-- cards com médias -->
+    <!-- cards com último valor e média -->
     <div class="cards">
       <div class="card">
-        <div class="card-title">Temp. ar média (°C)</div>
-        <div class="card-value" id="avg-air-temp">—</div>
-        <div class="card-sub" id="avg-air-temp-info"></div>
+        <div class="card-title">Temperatura do ar (°C)</div>
+        <div class="card-value" id="last-air-temp">—</div>
+        <div class="card-sub" id="mean-air-temp">Média: —</div>
       </div>
       <div class="card">
-        <div class="card-title">Umidade média (%)</div>
-        <div class="card-value" id="avg-air-humid">—</div>
-        <div class="card-sub" id="avg-air-humid-info"></div>
+        <div class="card-title">Umidade relativa (%)</div>
+        <div class="card-value" id="last-air-humid">—</div>
+        <div class="card-sub" id="mean-air-humid">Média: —</div>
       </div>
       <div class="card">
-        <div class="card-title">Vento méd (m/s)</div>
-        <div class="card-value" id="avg-wind-mean">—</div>
-        <div class="card-sub" id="avg-wind-mean-info"></div>
+        <div class="card-title">Vento médio (m/s)</div>
+        <div class="card-value" id="last-wind-mean">—</div>
+        <div class="card-sub" id="mean-wind-mean">Média: —</div>
       </div>
       <div class="card">
-        <div class="card-title">Temp. água média (°C)</div>
-        <div class="card-value" id="avg-water-temp">—</div>
-        <div class="card-sub" id="avg-water-temp-info"></div>
+        <div class="card-title">Direção do vento (°)</div>
+        <div class="card-value" id="last-wind-dir">—</div>
+        <div class="card-sub" id="mode-wind-dir">Moda (predom.): —</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Pressão atmosférica (hPa)</div>
+        <div class="card-value" id="last-air-pressure">—</div>
+        <div class="card-sub" id="mean-air-pressure">Média: —</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Temperatura da água (°C)</div>
+        <div class="card-value" id="last-water-temp">—</div>
+        <div class="card-sub" id="mean-water-temp">Média: —</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Nível de água (m)</div>
+        <div class="card-value" id="last-water-level">—</div>
+        <div class="card-sub" id="mean-water-level">Média: —</div>
       </div>
     </div>
 
-    <!-- gráficos simples -->
+    <!-- gráfico atmosfera -->
     <div class="section">
       <div class="section-title">
-        <span>Temperatura do ar (série temporal)</span>
-        <span style="font-size:.75rem;color:#64748b;" id="air-temp-range"></span>
+        <span>Série temporal — Atmosfera</span>
+        <label style="font-weight:normal;font-size:.8rem;">
+          Variável:
+          <select id="atmoParam">
+            <option value="air_temperature">Temp. ar (°C)</option>
+            <option value="air_humid">Umidade (%)</option>
+            <option value="wind_speed_mean">Vento médio (m/s)</option>
+            <option value="air_pressure">Pressão (hPa)</option>
+            <option value="wind_direction">Direção do vento (°)</option>
+          </select>
+        </label>
       </div>
-      <canvas id="airTempChart" height="110"></canvas>
+      <small id="atmo-range" style="display:block;font-size:.75rem;color:#64748b;margin-bottom:.25rem;"></small>
+      <canvas id="atmoChart" height="110"></canvas>
     </div>
 
+    <!-- gráfico água -->
     <div class="section">
       <div class="section-title">
-        <span>Temperatura da água (série temporal)</span>
-        <span style="font-size:.75rem;color:#64748b;" id="water-temp-range"></span>
+        <span>Série temporal — Água</span>
+        <label style="font-weight:normal;font-size:.8rem;">
+          Variável:
+          <select id="waterParam">
+            <option value="water_temperature">Temp. água (°C)</option>
+            <option value="water_level">Nível de água (m)</option>
+          </select>
+        </label>
       </div>
-      <canvas id="waterTempChart" height="110"></canvas>
+      <small id="water-range" style="display:block;font-size:.75rem;color:#64748b;margin-bottom:.25rem;"></small>
+      <canvas id="waterChart" height="110"></canvas>
     </div>
   </main>
 
@@ -143,22 +179,33 @@
     const limitInput = document.getElementById("limit");
     const btn = document.getElementById("reloadBtn");
 
-    // cards
-    const avgAirTempEl = document.getElementById("avg-air-temp");
-    const avgAirTempInfoEl = document.getElementById("avg-air-temp-info");
-    const avgAirHumidEl = document.getElementById("avg-air-humid");
-    const avgAirHumidInfoEl = document.getElementById("avg-air-humid-info");
-    const avgWindMeanEl = document.getElementById("avg-wind-mean");
-    const avgWindMeanInfoEl = document.getElementById("avg-wind-mean-info");
-    const avgWaterTempEl = document.getElementById("avg-water-temp");
-    const avgWaterTempInfoEl = document.getElementById("avg-water-temp-info");
+    // cards – últimos valores
+    const lastAirTempEl      = document.getElementById("last-air-temp");
+    const lastAirHumidEl     = document.getElementById("last-air-humid");
+    const lastWindMeanEl     = document.getElementById("last-wind-mean");
+    const lastWindDirEl      = document.getElementById("last-wind-dir");
+    const lastAirPressureEl  = document.getElementById("last-air-pressure");
+    const lastWaterTempEl    = document.getElementById("last-water-temp");
+    const lastWaterLevelEl   = document.getElementById("last-water-level");
 
-    const airTempRangeEl = document.getElementById("air-temp-range");
-    const waterTempRangeEl = document.getElementById("water-temp-range");
+    // cards – médias/moda
+    const meanAirTempEl      = document.getElementById("mean-air-temp");
+    const meanAirHumidEl     = document.getElementById("mean-air-humid");
+    const meanWindMeanEl     = document.getElementById("mean-wind-mean");
+    const modeWindDirEl      = document.getElementById("mode-wind-dir");
+    const meanAirPressureEl  = document.getElementById("mean-air-pressure");
+    const meanWaterTempEl    = document.getElementById("mean-water-temp");
+    const meanWaterLevelEl   = document.getElementById("mean-water-level");
+
+    const atmoRangeEl  = document.getElementById("atmo-range");
+    const waterRangeEl = document.getElementById("water-range");
+
+    const atmoParamSelect  = document.getElementById("atmoParam");
+    const waterParamSelect = document.getElementById("waterParam");
 
     let latestData = [];
-    let airTempChart = null;
-    let waterTempChart = null;
+    let atmoChart  = null;
+    let waterChart = null;
 
     function formatDateToBelem(iso) {
       if (!iso) return "";
@@ -180,9 +227,29 @@
       return sum / count;
     }
 
-    function fmtMean(val, decimals = 2) {
+    function computeMode(data, field) {
+      const freq = {};
+      for (const row of data) {
+        const v = row[field];
+        if (v !== null && v !== undefined) {
+          const key = String(Math.round(Number(v))); // arredonda p/ grau inteiro
+          freq[key] = (freq[key] || 0) + 1;
+        }
+      }
+      let bestKey = null;
+      let bestCount = 0;
+      for (const k in freq) {
+        if (freq[k] > bestCount) {
+          bestCount = freq[k];
+          bestKey = k;
+        }
+      }
+      return bestKey !== null ? Number(bestKey) : null;
+    }
+
+    function fmt(val, decimals = 2) {
       if (val === null || val === undefined || Number.isNaN(val)) return "—";
-      return val.toFixed(decimals);
+      return Number(val).toFixed(decimals);
     }
 
     async function loadData() {
@@ -202,64 +269,97 @@
           return;
         }
 
-        // ordenar da mais antiga para a mais recente para gráficos e infos
+        // ordenar da mais antiga para a mais recente
         const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
         const first = sorted[0];
-        const last = sorted[sorted.length - 1];
+        const last  = sorted[sorted.length - 1];
+
         const rangeLabel = `${formatDateToBelem(first.date)} → ${formatDateToBelem(last.date)}`;
+        atmoRangeEl.textContent  = rangeLabel;
+        waterRangeEl.textContent = rangeLabel;
 
-        // médias
-        const meanAirTemp = computeMean(data, "air_temperature");
-        const meanAirHumid = computeMean(data, "air_humid");
-        const meanWindMean = computeMean(data, "wind_speed_mean");
-        const meanWaterTemp = computeMean(data, "water_temperature");
+        // último registro (mais recente)
+        const lastRow = last;
 
-        avgAirTempEl.textContent = fmtMean(meanAirTemp, 1);
-        avgAirTempInfoEl.textContent = `média dos últimos ${data.length} registros`;
-        avgAirHumidEl.textContent = fmtMean(meanAirHumid, 1);
-        avgAirHumidInfoEl.textContent = `média dos últimos ${data.length} registros`;
-        avgWindMeanEl.textContent = fmtMean(meanWindMean, 2);
-        avgWindMeanInfoEl.textContent = `média dos últimos ${data.length} registros`;
-        avgWaterTempEl.textContent = fmtMean(meanWaterTemp, 2);
-        avgWaterTempInfoEl.textContent = `média dos últimos ${data.length} registros`;
+        // atualizar cards – últimos valores
+        lastAirTempEl.textContent     = fmt(lastRow.air_temperature, 1);
+        lastAirHumidEl.textContent    = fmt(lastRow.air_humid, 1);
+        lastWindMeanEl.textContent    = fmt(lastRow.wind_speed_mean, 2);
+        lastWindDirEl.textContent     = lastRow.wind_direction != null ? `${Math.round(lastRow.wind_direction)}°` : "—";
+        lastAirPressureEl.textContent = fmt(lastRow.air_pressure, 1);
+        lastWaterTempEl.textContent   = fmt(lastRow.water_temperature, 2);
+        lastWaterLevelEl.textContent  = fmt(lastRow.water_level, 2);
 
-        // gráficos
+        // médias / moda
+        const meanAirTemp     = computeMean(sorted, "air_temperature");
+        const meanAirHumid    = computeMean(sorted, "air_humid");
+        const meanWindMean    = computeMean(sorted, "wind_speed_mean");
+        const meanAirPressure = computeMean(sorted, "air_pressure");
+        const meanWaterTemp   = computeMean(sorted, "water_temperature");
+        const meanWaterLevel  = computeMean(sorted, "water_level");
+        const modeWindDir     = computeMode(sorted, "wind_direction");
+
+        meanAirTempEl.textContent     = `Média: ${fmt(meanAirTemp, 1)}`;
+        meanAirHumidEl.textContent    = `Média: ${fmt(meanAirHumid, 1)}`;
+        meanWindMeanEl.textContent    = `Média: ${fmt(meanWindMean, 2)}`;
+        meanAirPressureEl.textContent = `Média: ${fmt(meanAirPressure, 1)}`;
+        meanWaterTempEl.textContent   = `Média: ${fmt(meanWaterTemp, 2)}`;
+        meanWaterLevelEl.textContent  = `Média: ${fmt(meanWaterLevel, 2)}`;
+        modeWindDirEl.textContent     = modeWindDir != null ? `Moda (predom.): ${modeWindDir.toFixed(0)}°` : "Moda (predom.): —";
+
+        // atualizar gráficos
         updateCharts(sorted);
 
-        airTempRangeEl.textContent = rangeLabel;
-        waterTempRangeEl.textContent = rangeLabel;
-
-        statusEl.textContent = `Dados atualizados. Usando ${data.length} registros da estação ${stationId}.`;
+        statusEl.textContent = `Dados atualizados. Usando ${sorted.length} registros da estação ${stationId}.`;
       } catch (err) {
         console.error(err);
         statusEl.textContent = "Erro ao carregar dados. Veja o console.";
       }
     }
 
-    function updateCharts(sortedData) {
+    function buildSeries(sortedData, field) {
       const labels = sortedData.map(row => formatDateToBelem(row.date));
-      const airTempValues = sortedData.map(row =>
-        row.air_temperature == null ? null : Number(row.air_temperature)
-      );
-      const waterTempValues = sortedData.map(row =>
-        row.water_temperature == null ? null : Number(row.water_temperature)
-      );
+      const values = sortedData.map(row => {
+        const v = row[field];
+        return v == null ? null : Number(v);
+      });
+      return { labels, values };
+    }
 
-      const airCtx = document.getElementById("airTempChart").getContext("2d");
-      const waterCtx = document.getElementById("waterTempChart").getContext("2d");
+    function updateCharts(sortedData) {
+      const atmoField  = atmoParamSelect.value;
+      const waterField = waterParamSelect.value;
 
-      if (airTempChart) {
-        airTempChart.data.labels = labels;
-        airTempChart.data.datasets[0].data = airTempValues;
-        airTempChart.update();
+      const atmoSeries  = buildSeries(sortedData, atmoField);
+      const waterSeries = buildSeries(sortedData, waterField);
+
+      const atmoCtx  = document.getElementById("atmoChart").getContext("2d");
+      const waterCtx = document.getElementById("waterChart").getContext("2d");
+
+      // rótulos bonitos
+      const labelsPretty = {
+        air_temperature: "Temperatura do ar (°C)",
+        air_humid: "Umidade relativa (%)",
+        wind_speed_mean: "Vento médio (m/s)",
+        air_pressure: "Pressão atmosférica (hPa)",
+        wind_direction: "Direção do vento (°)",
+        water_temperature: "Temperatura da água (°C)",
+        water_level: "Nível de água (m)",
+      };
+
+      if (atmoChart) {
+        atmoChart.data.labels = atmoSeries.labels;
+        atmoChart.data.datasets[0].data = atmoSeries.values;
+        atmoChart.data.datasets[0].label = labelsPretty[atmoField] || atmoField;
+        atmoChart.update();
       } else {
-        airTempChart = new Chart(airCtx, {
+        atmoChart = new Chart(atmoCtx, {
           type: "line",
           data: {
-            labels,
+            labels: atmoSeries.labels,
             datasets: [{
-              label: "Temperatura do ar (°C)",
-              data: airTempValues,
+              label: labelsPretty[atmoField] || atmoField,
+              data: atmoSeries.values,
               borderColor: "rgba(15,118,110,1)",
               backgroundColor: "rgba(15,118,110,0.15)",
               tension: 0.2,
@@ -279,18 +379,19 @@
         });
       }
 
-      if (waterTempChart) {
-        waterTempChart.data.labels = labels;
-        waterTempChart.data.datasets[0].data = waterTempValues;
-        waterTempChart.update();
+      if (waterChart) {
+        waterChart.data.labels = waterSeries.labels;
+        waterChart.data.datasets[0].data = waterSeries.values;
+        waterChart.data.datasets[0].label = labelsPretty[waterField] || waterField;
+        waterChart.update();
       } else {
-        waterTempChart = new Chart(waterCtx, {
+        waterChart = new Chart(waterCtx, {
           type: "line",
           data: {
-            labels,
+            labels: waterSeries.labels,
             datasets: [{
-              label: "Temperatura da água (°C)",
-              data: waterTempValues,
+              label: labelsPretty[waterField] || waterField,
+              data: waterSeries.values,
               borderColor: "rgba(59,130,246,1)",
               backgroundColor: "rgba(59,130,246,0.15)",
               tension: 0.2,
@@ -312,6 +413,12 @@
     }
 
     btn.addEventListener("click", loadData);
+    atmoParamSelect.addEventListener("change", () => {
+      if (latestData.length > 0) updateCharts([...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date)));
+    });
+    waterParamSelect.addEventListener("change", () => {
+      if (latestData.length > 0) updateCharts([...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date)));
+    });
 
     // primeira carga + atualização periódica
     loadData();
@@ -319,5 +426,6 @@
   </script>
 </body>
 </html>
+
 
 
