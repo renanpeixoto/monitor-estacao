@@ -169,6 +169,16 @@
       <small id="water-range" style="display:block;font-size:.75rem;color:#64748b;margin-bottom:.25rem;"></small>
       <canvas id="waterChart" height="110"></canvas>
     </div>
+
+    <!-- previsão de maré -->
+    <div class="section">
+      <div class="section-title">
+        <span>Previsão de maré — Nível de água previsto (m)</span>
+        <span style="font-weight:normal;font-size:.8rem;" id="tide-info">Carregando...</span>
+      </div>
+      <small id="tide-range" style="display:block;font-size:.75rem;color:#64748b;margin-bottom:.25rem;"></small>
+      <canvas id="tideChart" height="110"></canvas>
+    </div>
   </main>
 
   <script>
@@ -203,9 +213,14 @@
     const atmoParamSelect  = document.getElementById("atmoParam");
     const waterParamSelect = document.getElementById("waterParam");
 
+    // previsão de maré
+    const tideInfoEl  = document.getElementById("tide-info");
+    const tideRangeEl = document.getElementById("tide-range");
+
     let latestData = [];
     let atmoChart  = null;
     let waterChart = null;
+    let tideChart  = null;
 
     function formatDateToBelem(iso) {
       if (!iso) return "";
@@ -252,69 +267,64 @@
       return Number(val).toFixed(decimals);
     }
 
-    async function loadData() {
+    async function loadObservedData() {
       const stationId = stationInput.value || 1;
       const limit = limitInput.value || 50;
       statusEl.textContent = `Carregando últimos ${limit} registros da estação ${stationId}...`;
 
-      try {
-        const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const json = await resp.json();
-        const data = json.data || [];
-        latestData = data;
+      const resp = await fetch(`${API_BASE}/latest?station_id=${stationId}&limit=${limit}`);
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const json = await resp.json();
+      const data = json.data || [];
+      latestData = data;
 
-        if (data.length === 0) {
-          statusEl.textContent = "Nenhum dado disponível para essa estação.";
-          return;
-        }
-
-        // ordenar da mais antiga para a mais recente
-        const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
-        const first = sorted[0];
-        const last  = sorted[sorted.length - 1];
-
-        const rangeLabel = `${formatDateToBelem(first.date)} → ${formatDateToBelem(last.date)}`;
-        atmoRangeEl.textContent  = rangeLabel;
-        waterRangeEl.textContent = rangeLabel;
-
-        // último registro (mais recente)
-        const lastRow = last;
-
-        // atualizar cards – últimos valores
-        lastAirTempEl.textContent     = fmt(lastRow.air_temperature, 1);
-        lastAirHumidEl.textContent    = fmt(lastRow.air_humid, 1);
-        lastWindMeanEl.textContent    = fmt(lastRow.wind_speed_mean, 2);
-        lastWindDirEl.textContent     = lastRow.wind_direction != null ? `${Math.round(lastRow.wind_direction)}°` : "—";
-        lastAirPressureEl.textContent = fmt(lastRow.air_pressure, 1);
-        lastWaterTempEl.textContent   = fmt(lastRow.water_temperature, 2);
-        lastWaterLevelEl.textContent  = fmt(lastRow.water_level, 2);
-
-        // médias / moda
-        const meanAirTemp     = computeMean(sorted, "air_temperature");
-        const meanAirHumid    = computeMean(sorted, "air_humid");
-        const meanWindMean    = computeMean(sorted, "wind_speed_mean");
-        const meanAirPressure = computeMean(sorted, "air_pressure");
-        const meanWaterTemp   = computeMean(sorted, "water_temperature");
-        const meanWaterLevel  = computeMean(sorted, "water_level");
-        const modeWindDir     = computeMode(sorted, "wind_direction");
-
-        meanAirTempEl.textContent     = `Média: ${fmt(meanAirTemp, 1)}`;
-        meanAirHumidEl.textContent    = `Média: ${fmt(meanAirHumid, 1)}`;
-        meanWindMeanEl.textContent    = `Média: ${fmt(meanWindMean, 2)}`;
-        meanAirPressureEl.textContent = `Média: ${fmt(meanAirPressure, 1)}`;
-        meanWaterTempEl.textContent   = `Média: ${fmt(meanWaterTemp, 2)}`;
-        meanWaterLevelEl.textContent  = `Média: ${fmt(meanWaterLevel, 2)}`;
-        modeWindDirEl.textContent     = modeWindDir != null ? `Moda (predom.): ${modeWindDir.toFixed(0)}°` : "Moda (predom.): —";
-
-        // atualizar gráficos
-        updateCharts(sorted);
-
-        statusEl.textContent = `Dados atualizados. Usando ${sorted.length} registros da estação ${stationId}.`;
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "Erro ao carregar dados. Veja o console.";
+      if (data.length === 0) {
+        statusEl.textContent = "Nenhum dado disponível para essa estação.";
+        return;
       }
+
+      // ordenar da mais antiga para a mais recente
+      const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const first = sorted[0];
+      const last  = sorted[sorted.length - 1];
+
+      const rangeLabel = `${formatDateToBelem(first.date)} → ${formatDateToBelem(last.date)}`;
+      atmoRangeEl.textContent  = rangeLabel;
+      waterRangeEl.textContent = rangeLabel;
+
+      // último registro (mais recente)
+      const lastRow = last;
+
+      // atualizar cards – últimos valores
+      lastAirTempEl.textContent     = fmt(lastRow.air_temperature, 1);
+      lastAirHumidEl.textContent    = fmt(lastRow.air_humid, 1);
+      lastWindMeanEl.textContent    = fmt(lastRow.wind_speed_mean, 2);
+      lastWindDirEl.textContent     = lastRow.wind_direction != null ? `${Math.round(lastRow.wind_direction)}°` : "—";
+      lastAirPressureEl.textContent = fmt(lastRow.air_pressure, 1);
+      lastWaterTempEl.textContent   = fmt(lastRow.water_temperature, 2);
+      lastWaterLevelEl.textContent  = fmt(lastRow.water_level, 2);
+
+      // médias / moda
+      const meanAirTemp     = computeMean(sorted, "air_temperature");
+      const meanAirHumid    = computeMean(sorted, "air_humid");
+      const meanWindMean    = computeMean(sorted, "wind_speed_mean");
+      const meanAirPressure = computeMean(sorted, "air_pressure");
+      const meanWaterTemp   = computeMean(sorted, "water_temperature");
+      const meanWaterLevel  = computeMean(sorted, "water_level");
+      const modeWindDir     = computeMode(sorted, "wind_direction");
+
+      meanAirTempEl.textContent     = `Média: ${fmt(meanAirTemp, 1)}`;
+      meanAirHumidEl.textContent    = `Média: ${fmt(meanAirHumid, 1)}`;
+      meanWindMeanEl.textContent    = `Média: ${fmt(meanWindMean, 2)}`;
+      meanAirPressureEl.textContent = `Média: ${fmt(meanAirPressure, 1)}`;
+      meanWaterTempEl.textContent   = `Média: ${fmt(meanWaterTemp, 2)}`;
+      meanWaterLevelEl.textContent  = `Média: ${fmt(meanWaterLevel, 2)}`;
+      modeWindDirEl.textContent     = modeWindDir != null ? `Moda (predom.): ${modeWindDir.toFixed(0)}°` : "Moda (predom.): —";
+
+      // atualizar gráficos
+      updateObservedCharts(sorted);
+
+      statusEl.textContent = `Dados observados atualizados. Usando ${sorted.length} registros da estação ${stationId}.`;
     }
 
     function buildSeries(sortedData, field) {
@@ -326,7 +336,7 @@
       return { labels, values };
     }
 
-    function updateCharts(sortedData) {
+    function updateObservedCharts(sortedData) {
       const atmoField  = atmoParamSelect.value;
       const waterField = waterParamSelect.value;
 
@@ -412,20 +422,110 @@
       }
     }
 
-    btn.addEventListener("click", loadData);
+    async function loadTidePrediction() {
+      const stationId = stationInput.value || 1;
+      tideInfoEl.textContent = "Carregando previsão...";
+      tideRangeEl.textContent = "";
+
+      try {
+        const resp = await fetch(`${API_BASE}/tide_prediction?station_id=${stationId}&limit=200`);
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        const data = json.data || [];
+
+        if (data.length === 0) {
+          tideInfoEl.textContent = "Sem dados de previsão para esta estação.";
+          return;
+        }
+
+        // ordenar cronologicamente
+        const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const first = sorted[0];
+        const last  = sorted[sorted.length - 1];
+
+        const labels = sorted.map(row => formatDateToBelem(row.date));
+        const values = sorted.map(row => {
+          const v = row.water_level;
+          return v == null ? null : Number(v);
+        });
+
+        tideRangeEl.textContent = `${formatDateToBelem(first.date)} → ${formatDateToBelem(last.date)}`;
+        tideInfoEl.textContent  = `Previsão de maré para a estação ${stationId} (nível previsto).`;
+
+        const ctx = document.getElementById("tideChart").getContext("2d");
+
+        if (tideChart) {
+          tideChart.data.labels = labels;
+          tideChart.data.datasets[0].data = values;
+          tideChart.update();
+        } else {
+          tideChart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels,
+              datasets: [{
+                label: "Nível de água previsto (m)",
+                data: values,
+                borderColor: "rgba(234,179,8,1)",
+                backgroundColor: "rgba(234,179,8,0.15)",
+                tension: 0.2,
+                spanGaps: true,
+                pointRadius: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              interaction: { mode: 'index', intersect: false },
+              plugins: { legend: { display: true } },
+              scales: {
+                x: { ticks: { maxTicksLimit: 8 } },
+                y: { beginAtZero: false }
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Erro ao carregar previsão de maré:", err);
+        tideInfoEl.textContent = "Erro ao carregar previsão de maré.";
+      }
+    }
+
+    async function refreshAll() {
+      try {
+        await loadObservedData();
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        await loadTidePrediction();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    btn.addEventListener("click", refreshAll);
+
     atmoParamSelect.addEventListener("change", () => {
-      if (latestData.length > 0) updateCharts([...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date)));
-    });
-    waterParamSelect.addEventListener("change", () => {
-      if (latestData.length > 0) updateCharts([...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date)));
+      if (latestData.length > 0) {
+        const sorted = [...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date));
+        updateObservedCharts(sorted);
+      }
     });
 
-    // primeira carga + atualização periódica
-    loadData();
-    setInterval(loadData, 60000);
+    waterParamSelect.addEventListener("change", () => {
+      if (latestData.length > 0) {
+        const sorted = [...latestData].sort((a,b)=>new Date(a.date)-new Date(b.date));
+        updateObservedCharts(sorted);
+      }
+    });
+
+    // primeira carga + atualização periódica (observado + previsão)
+    refreshAll();
+    setInterval(refreshAll, 60000);
   </script>
 </body>
 </html>
+
 
 
 
