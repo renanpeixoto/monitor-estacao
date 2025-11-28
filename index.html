@@ -14,7 +14,7 @@
       display: flex;
       gap: .75rem;
       flex-wrap: wrap;
-      margin-bottom: 1rem;
+      margin-bottom: .25rem;
       align-items: center;
     }
     input, button, select {
@@ -30,6 +30,13 @@
     }
     button:hover { background: #115e57; }
     .status { font-size: .8rem; color: #475569; }
+
+    .info-text {
+      font-size: .75rem;
+      color: #64748b;
+      margin-bottom: .9rem;
+      max-width: 60rem;
+    }
 
     .cards {
       display: grid;
@@ -70,8 +77,15 @@
       font-size: .8rem;
     }
 
+    .note {
+      font-size: .75rem;
+      color: #6b7280;
+      margin-top: .4rem;
+    }
+
     @media (max-width: 880px) {
       .controls { flex-direction: column; align-items: flex-start; }
+      .info-text { max-width: 100%; }
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -79,7 +93,7 @@
 <body>
   <header>
     <h1 style="margin:0;font-size:1.1rem;">Resumo da Estação</h1>
-    <p style="margin:.2rem 0 0;font-size:.8rem;">Projeto ARCA • LAPMAR / UFPA • API: Railway • Dados: PostgreSQL</p>
+    <p style="margin:.2rem 0 0;font-size:.8rem;">Projeto ARCA • LAPMAR/UFPA • RARE • Accenture </p>
   </header>
 
   <main>
@@ -95,6 +109,10 @@
       <button id="reloadBtn">Atualizar agora</button>
       <span id="status" class="status">Carregando...</span>
     </div>
+
+    <p class="info-text">
+      Dados observados em <strong>tempo quase real</strong>, sujeitos a falhas de comunicação, ausência pontual de registros e manutenção dos sensores.
+    </p>
 
     <!-- cards com último valor e média -->
     <div class="cards">
@@ -178,6 +196,10 @@
       </div>
       <small id="tide-range" style="display:block;font-size:.75rem;color:#64748b;margin-bottom:.25rem;"></small>
       <canvas id="tideChart" height="110"></canvas>
+      <p class="note">
+        Nível de água previsto em metros em relação a um datum de referência local (ex.: nível médio ou datum hidrográfico). 
+        Os valores representam <strong>previsão</strong> e podem ser ajustados à medida que novos dados e calibrações são incorporados.
+      </p>
     </div>
   </main>
 
@@ -428,7 +450,8 @@
       tideRangeEl.textContent = "";
 
       try {
-        const resp = await fetch(`${API_BASE}/tide_prediction?station_id=${stationId}&limit=200`);
+        // pedimos bastante pontos e filtramos no front para até 72h
+        const resp = await fetch(`${API_BASE}/tide_prediction?station_id=${stationId}&limit=5000`);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const json = await resp.json();
         const data = json.data || [];
@@ -440,17 +463,38 @@
 
         // ordenar cronologicamente
         const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
-        const first = sorted[0];
-        const last  = sorted[sorted.length - 1];
 
-        const labels = sorted.map(row => formatDateToBelem(row.date));
-        const values = sorted.map(row => {
+        // filtrar apenas futuro até 72h
+        const now = new Date();
+        const maxTime = new Date(now.getTime() + 72 * 60 * 60 * 1000); // 72 horas
+
+        const filtered = sorted.filter(row => {
+          const d = new Date(row.date);
+          return d >= now && d <= maxTime;
+        });
+
+        if (filtered.length === 0) {
+          tideInfoEl.textContent = "Sem dados de previsão no horizonte de 72h para esta estação.";
+          tideRangeEl.textContent = "";
+          if (tideChart) {
+            tideChart.data.labels = [];
+            tideChart.data.datasets[0].data = [];
+            tideChart.update();
+          }
+          return;
+        }
+
+        const first = filtered[0];
+        const last  = filtered[filtered.length - 1];
+
+        const labels = filtered.map(row => formatDateToBelem(row.date));
+        const values = filtered.map(row => {
           const v = row.water_level;
           return v == null ? null : Number(v);
         });
 
         tideRangeEl.textContent = `${formatDateToBelem(first.date)} → ${formatDateToBelem(last.date)}`;
-        tideInfoEl.textContent  = `Previsão de maré para a estação ${stationId} (nível previsto).`;
+        tideInfoEl.textContent  = `Previsão de maré para a estação ${stationId} (próximas até 72 horas).`;
 
         const ctx = document.getElementById("tideChart").getContext("2d");
 
@@ -525,6 +569,7 @@
   </script>
 </body>
 </html>
+
 
 
 
