@@ -86,7 +86,7 @@
 <body>
   <header>
     <h1 style="margin:0;font-size:1.1rem;">Resumo da Estação</h1>
-    <p style="margin:.2rem 0 0;font-size:.8rem;">Projeto ARCA • LAPMAR / UFPA • API: Railway • Dados: PostgreSQL</p>
+    <p style="margin:.2rem 0 0;font-size:.8rem;">Projeto ARCA • LAPMAR/UFPA • API</p>
   </header>
 
   <main>
@@ -95,16 +95,12 @@
         <label for="stationId">Estação:</label>
         <input type="number" id="stationId" value="1" min="1" style="width:4rem;">
       </div>
-      <div>
-        <label for="limit">Registros usados nas estatísticas:</label>
-        <input type="number" id="limit" value="50" min="10" max="500" style="width:4.5rem;">
-      </div>
       <button id="reloadBtn">Atualizar agora</button>
       <span id="status" class="status">Carregando...</span>
     </div>
 
     <p class="info-text">
-      Dados observados em <strong>tempo quase real</strong>, sujeitos a falhas de comunicação, ausência pontual de registros e manutenção dos sensores.
+      Dados observados em <strong>tempo quase real</strong> (últimos 100 registros da estação selecionada), sujeitos a falhas de comunicação, ausência pontual de registros e manutenção dos sensores.
     </p>
 
     <!-- CARDS -->
@@ -144,6 +140,11 @@
         <div class="card-value" id="last-water-level">—</div>
         <div class="card-sub" id="mean-water-level">Média: —</div>
       </div>
+      <div class="card">
+        <div class="card-title">Precipitação (mm)</div>
+        <div class="card-value" id="last-precipitation">—</div>
+        <div class="card-sub" id="mean-precipitation">Média: —</div>
+      </div>
     </div>
 
     <!-- GRÁFICO ATMOSFÉRICO -->
@@ -153,11 +154,12 @@
         <label>
           Variável:
           <select id="atmoParam">
-            <option value="air_temperature">Temperatura do ar</option>
+            <option value="air_temperature">Temperatura do ar (°C)</option>
             <option value="air_humid">Umidade (%)</option>
             <option value="wind_speed_mean">Vento médio (m/s)</option>
             <option value="air_pressure">Pressão (hPa)</option>
             <option value="wind_direction">Direção do vento (°)</option>
+            <option value="precipitation">Precipitação (mm)</option>
           </select>
         </label>
       </div>
@@ -184,29 +186,31 @@
 
   <script>
     const API_BASE = "https://apiestacao-production.up.railway.app";
+    const LIMIT = 100; // sempre usar os últimos 100 registros
 
     const statusEl = document.getElementById("status");
     const stationInput = document.getElementById("stationId");
-    const limitInput = document.getElementById("limit");
     const btn = document.getElementById("reloadBtn");
 
     // cards
     const C = {
-      lastAirTemp: document.getElementById("last-air-temp"),
-      lastAirHumid: document.getElementById("last-air-humid"),
-      lastWindMean: document.getElementById("last-wind-mean"),
-      lastWindDir: document.getElementById("last-wind-dir"),
-      lastAirPressure: document.getElementById("last-air-pressure"),
-      lastWaterTemp: document.getElementById("last-water-temp"),
-      lastWaterLevel: document.getElementById("last-water-level"),
+      lastAirTemp:      document.getElementById("last-air-temp"),
+      lastAirHumid:     document.getElementById("last-air-humid"),
+      lastWindMean:     document.getElementById("last-wind-mean"),
+      lastWindDir:      document.getElementById("last-wind-dir"),
+      lastAirPressure:  document.getElementById("last-air-pressure"),
+      lastWaterTemp:    document.getElementById("last-water-temp"),
+      lastWaterLevel:   document.getElementById("last-water-level"),
+      lastPrecip:       document.getElementById("last-precipitation"),
 
-      meanAirTemp: document.getElementById("mean-air-temp"),
-      meanAirHumid: document.getElementById("mean-air-humid"),
-      meanWindMean: document.getElementById("mean-wind-mean"),
-      modeWindDir: document.getElementById("mode-wind-dir"),
-      meanAirPressure: document.getElementById("mean-air-pressure"),
-      meanWaterTemp: document.getElementById("mean-water-temp"),
-      meanWaterLevel: document.getElementById("mean-water-level"),
+      meanAirTemp:      document.getElementById("mean-air-temp"),
+      meanAirHumid:     document.getElementById("mean-air-humid"),
+      meanWindMean:     document.getElementById("mean-wind-mean"),
+      modeWindDir:      document.getElementById("mode-wind-dir"),
+      meanAirPressure:  document.getElementById("mean-air-pressure"),
+      meanWaterTemp:    document.getElementById("mean-water-temp"),
+      meanWaterLevel:   document.getElementById("mean-water-level"),
+      meanPrecip:       document.getElementById("mean-precipitation"),
     };
 
     const atmoRangeEl = document.getElementById("atmo-range");
@@ -218,49 +222,59 @@
     let atmoChart = null;
     let waterChart = null;
 
-    function fmt(v, d=2) { return v==null ? "—" : Number(v).toFixed(d); }
+    function fmt(v, d=2) {
+      return v==null || Number.isNaN(v) ? "—" : Number(v).toFixed(d);
+    }
 
-    function toBelém(t) {
+    function toBelem(t) {
       return new Date(t).toLocaleString("pt-BR", { timeZone: "America/Belem" });
     }
 
     function mean(data, field) {
       const vals = data.map(r => r[field]).filter(v => v!=null);
       if (!vals.length) return null;
-      return vals.reduce((a,b)=>a+b,0)/vals.length;
+      return vals.reduce((a,b)=>a+b, 0) / vals.length;
     }
 
     function modeWind(data) {
       const freq = {};
       data.forEach(r => {
-        if (r.wind_direction!=null)
-          freq[Math.round(r.wind_direction)] = (freq[Math.round(r.wind_direction)]||0)+1;
+        if (r.wind_direction!=null) {
+          const k = Math.round(r.wind_direction);
+          freq[k] = (freq[k] || 0) + 1;
+        }
       });
-      let best=null, cnt=0;
-      for (const k in freq)
-        if (freq[k]>cnt) {cnt=freq[k]; best=k;}
+      let best = null, cnt = 0;
+      for (const k in freq) {
+        if (freq[k] > cnt) {
+          cnt = freq[k];
+          best = k;
+        }
+      }
       return best;
     }
 
     function series(data, field) {
       return {
-        labels: data.map(r => toBelém(r.date)),
-        values: data.map(r => r[field]==null?null:Number(r[field]))
+        labels: data.map(r => toBelem(r.date)),
+        values: data.map(r => r[field]==null ? null : Number(r[field]))
       };
     }
 
     async function loadObserved() {
-      const station = stationInput.value;
-      const limit = limitInput.value;
+      const station = stationInput.value || 1;
+      statusEl.textContent = `Carregando últimos ${LIMIT} registros da estação ${station}...`;
 
-      statusEl.textContent = "Carregando…";
-
-      const resp = await fetch(`${API_BASE}/latest?station_id=${station}&limit=${limit}`);
+      const resp = await fetch(`${API_BASE}/latest?station_id=${station}&limit=${LIMIT}`);
+      if (!resp.ok) {
+        statusEl.textContent = `Erro HTTP ${resp.status} ao carregar dados.`;
+        return;
+      }
       const json = await resp.json();
       const rows = json.data || [];
 
       if (!rows.length) {
-        statusEl.textContent = "Sem dados.";
+        statusEl.textContent = "Nenhum dado disponível para essa estação.";
         return;
       }
 
@@ -270,34 +284,40 @@
       const last = sorted[sorted.length-1];
 
       // preencher cards (últimos)
-      C.lastAirTemp.textContent = fmt(last.air_temperature,1);
-      C.lastAirHumid.textContent = fmt(last.air_humid,1);
-      C.lastWindMean.textContent = fmt(last.wind_speed_mean,2);
-      C.lastWindDir.textContent = last.wind_direction!=null ? `${Math.round(last.wind_direction)}°` : "—";
+      C.lastAirTemp.textContent     = fmt(last.air_temperature,1);
+      C.lastAirHumid.textContent    = fmt(last.air_humid,1);
+      C.lastWindMean.textContent    = fmt(last.wind_speed_mean,2);
+      C.lastWindDir.textContent     = last.wind_direction!=null ? `${Math.round(last.wind_direction)}°` : "—";
       C.lastAirPressure.textContent = fmt(last.air_pressure,1);
-      C.lastWaterTemp.textContent = fmt(last.water_temperature,2);
-      C.lastWaterLevel.textContent = fmt(last.water_level,2);
+      C.lastWaterTemp.textContent   = fmt(last.water_temperature,2);
+      C.lastWaterLevel.textContent  = fmt(last.water_level,2);
+      C.lastPrecip.textContent      = fmt(last.precipitation,2);
 
       // médias / moda
-      C.meanAirTemp.textContent = `Média: ${fmt(mean(sorted,"air_temperature"),1)}`;
-      C.meanAirHumid.textContent = `Média: ${fmt(mean(sorted,"air_humid"),1)}`;
-      C.meanWindMean.textContent = `Média: ${fmt(mean(sorted,"wind_speed_mean"),2)}`;
+      C.meanAirTemp.textContent     = `Média: ${fmt(mean(sorted,"air_temperature"),1)}`;
+      C.meanAirHumid.textContent    = `Média: ${fmt(mean(sorted,"air_humid"),1)}`;
+      C.meanWindMean.textContent    = `Média: ${fmt(mean(sorted,"wind_speed_mean"),2)}`;
       C.meanAirPressure.textContent = `Média: ${fmt(mean(sorted,"air_pressure"),1)}`;
-      C.meanWaterTemp.textContent = `Média: ${fmt(mean(sorted,"water_temperature"),2)}`;
-      C.meanWaterLevel.textContent = `Média: ${fmt(mean(sorted,"water_level"),2)}`;
-      C.modeWindDir.textContent = `Moda (predom.): ${modeWind(sorted)??"—"}°`;
+      C.meanWaterTemp.textContent   = `Média: ${fmt(mean(sorted,"water_temperature"),2)}`;
+      C.meanWaterLevel.textContent  = `Média: ${fmt(mean(sorted,"water_level"),2)}`;
+      C.meanPrecip.textContent      = `Média: ${fmt(mean(sorted,"precipitation"),2)}`;
+
+      const mw = modeWind(sorted);
+      C.modeWindDir.textContent = mw!=null ? `Moda (predom.): ${mw}°` : "Moda (predom.): —";
 
       // intervalo temporal
-      atmoRangeEl.textContent =
-        `${toBelém(sorted[0].date)} → ${toBelém(sorted[sorted.length-1].date)}`;
-      waterRangeEl.textContent = atmoRangeEl.textContent;
+      const rangeLabel = `${toBelem(sorted[0].date)} → ${toBelem(sorted[sorted.length-1].date)}`;
+      atmoRangeEl.textContent  = rangeLabel;
+      waterRangeEl.textContent = rangeLabel;
 
       updateCharts();
 
-      statusEl.textContent = "Atualizado.";
+      statusEl.textContent = `Atualizado (últimos ${sorted.length} registros).`;
     }
 
     function updateCharts() {
+      if (!latestData.length) return;
+
       const atmoField = atmoParam.value;
       const waterField = waterParam.value;
 
@@ -309,10 +329,11 @@
 
       const labelPretty = {
         air_temperature: "Temperatura do ar (°C)",
-        air_humid: "Umidade (%)",
+        air_humid: "Umidade relativa (%)",
         wind_speed_mean: "Vento médio (m/s)",
-        air_pressure: "Pressão (hPa)",
+        air_pressure: "Pressão atmosférica (hPa)",
         wind_direction: "Direção do vento (°)",
+        precipitation: "Precipitação (mm)",
         water_temperature: "Temperatura da água (°C)",
         water_level: "Nível de água (m)"
       };
@@ -382,11 +403,13 @@
     atmoParam.addEventListener("change", updateCharts);
     waterParam.addEventListener("change", updateCharts);
 
+    // primeira carga + atualização periódica
     loadObserved();
     setInterval(loadObserved, 60000);
   </script>
 </body>
 </html>
+
 
 
 
